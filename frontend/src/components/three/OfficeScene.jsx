@@ -1,10 +1,35 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, Suspense, useLayoutEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Environment, Html, RoundedBox, ContactShadows } from "@react-three/drei";
+import { OrbitControls, Environment, Html, RoundedBox, ContactShadows, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { STATUS_COLORS, STATUS_LABEL, deskPosition, MEETING_TABLE, MEETING_SEATS, WANDER_ZONE } from "../../lib/office";
 
 const WALK_SPEED = 2.4;
+const OFFICE_MODEL_URL = "/models/office_opt.glb";
+
+/* ---------------- Imported office environment (user GLB) ---------------- */
+function OfficeModel({ url }) {
+  const { scene } = useGLTF(url);
+  const cloned = useMemo(() => scene.clone(true), [scene]);
+  useLayoutEffect(() => {
+    cloned.updateMatrixWorld(true);
+    cloned.traverse((o) => {
+      if (o.isMesh && o.geometry) { o.geometry.computeBoundingBox(); o.receiveShadow = true; }
+    });
+    let box = new THREE.Box3().setFromObject(cloned);
+    const size = box.getSize(new THREE.Vector3());
+    const s = 30 / Math.max(size.x, size.z || 1);
+    cloned.scale.multiplyScalar(isFinite(s) && s > 0 ? s : 1);
+    cloned.updateMatrixWorld(true);
+    box = new THREE.Box3().setFromObject(cloned);
+    const c = box.getCenter(new THREE.Vector3());
+    cloned.position.x -= c.x;
+    cloned.position.z -= c.z;
+    cloned.position.y -= box.min.y;
+  }, [cloned]);
+  return <primitive object={cloned} />;
+}
+useGLTF.preload(OFFICE_MODEL_URL);
 
 /* ---------------- Heads ---------------- */
 function HumanHead({ avatar = {} }) {
@@ -260,21 +285,12 @@ function Envelope({ from, to, color, onDone }) {
   );
 }
 
-/* ---------------- Room shell ---------------- */
-function Room() {
+/* ---------------- Fallback floor (under imported model) ---------------- */
+function BaseFloor() {
   return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[30, 30]} /><meshStandardMaterial color="#101014" roughness={0.9} /></mesh>
-      <gridHelper args={[30, 30, "#1e1e26", "#17171d"]} position={[0, 0.01, 0]} />
-      <mesh position={[0, 3, -9.5]} receiveShadow><boxGeometry args={[30, 6, 0.2]} /><meshStandardMaterial color="#0d0d11" /></mesh>
-      <mesh position={[-14, 3, 0]} receiveShadow><boxGeometry args={[0.2, 6, 30]} /><meshStandardMaterial color="#0d0d11" /></mesh>
-      {[[-12, -7], [-12, 6], [12, 8]].map((p, i) => (
-        <group key={i} position={[p[0], 0, p[1]]}>
-          <mesh position={[0, 0.25, 0]}><cylinderGeometry args={[0.22, 0.28, 0.5, 12]} /><meshStandardMaterial color="#2a2a30" /></mesh>
-          <mesh position={[0, 0.75, 0]}><sphereGeometry args={[0.45, 12, 12]} /><meshStandardMaterial color="#1f6b45" roughness={1} /></mesh>
-        </group>
-      ))}
-    </group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+      <planeGeometry args={[60, 60]} /><meshStandardMaterial color="#0c0c10" roughness={1} />
+    </mesh>
   );
 }
 
@@ -317,7 +333,10 @@ export default function OfficeScene({ employees = [], envelopes = [], onRemoveEn
       <directionalLight position={[6, 12, 6]} intensity={1.1} castShadow shadow-mapSize={[1024, 1024]} />
       <Environment preset="city" />
 
-      <Room />
+      <BaseFloor />
+      <Suspense fallback={null}>
+        <OfficeModel url={OFFICE_MODEL_URL} />
+      </Suspense>
       <MeetingRoom active={meetingActive} />
 
       {employees.map((emp) => {
