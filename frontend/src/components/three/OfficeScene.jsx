@@ -232,18 +232,6 @@ function MeetingRoom({ active }) {
         <ringGeometry args={[2.25, 2.35, 48]} />
         <meshBasicMaterial color={glow} transparent opacity={active ? 0.9 : 0.4} side={THREE.DoubleSide} />
       </mesh>
-      {/* table */}
-      <mesh position={[MEETING_TABLE.x, 0.62, MEETING_TABLE.z]} castShadow receiveShadow>
-        <boxGeometry args={[2.6, 0.08, 1.4]} /><meshStandardMaterial color="#3a3a42" roughness={0.5} />
-      </mesh>
-      <mesh position={[MEETING_TABLE.x, 0.31, MEETING_TABLE.z]}><cylinderGeometry args={[0.16, 0.22, 0.62, 12]} /><meshStandardMaterial color="#26262c" /></mesh>
-      {/* chairs */}
-      {MEETING_SEATS.map((s, i) => (
-        <group key={i} position={[s.x, 0, s.z]}>
-          <mesh position={[0, 0.42, 0]}><boxGeometry args={[0.4, 0.06, 0.4]} /><meshStandardMaterial color="#1c1c22" /></mesh>
-          <mesh position={[0, 0.65, s.z < MEETING_TABLE.z ? -0.18 : 0.18]}><boxGeometry args={[0.4, 0.4, 0.06]} /><meshStandardMaterial color="#1c1c22" /></mesh>
-        </group>
-      ))}
       {/* sign */}
       <Html position={[MEETING_TABLE.x, 2.2, MEETING_TABLE.z - 2]} center distanceFactor={11}>
         <div className="glass rounded-md px-2.5 py-1 whitespace-nowrap flex items-center gap-1.5" style={{ borderColor: active ? "#8B5CF6" : undefined }}>
@@ -338,12 +326,6 @@ export default function OfficeScene({ employees = [], envelopes = [], onRemoveEn
         <OfficeModel url={OFFICE_MODEL_URL} />
       </Suspense>
       <MeetingRoom active={meetingActive} />
-
-      {employees.map((emp) => {
-        const home = emp.desk || deskPosition(emp.desk_index || 0);
-        const accent = emp.type === "ai" ? (emp.avatar?.bodyColor || "#00E599") : (emp.avatar?.shirtColor || "#FF6B35");
-        return <Desk key={"d" + emp.id} pos={home} accent={accent} />;
-      })}
 
       {resolved.map(({ emp, home, mode, target, facePoint, bubble }) => (
         <Person key={emp.id} emp={emp} home={home} mode={mode} target={target}
