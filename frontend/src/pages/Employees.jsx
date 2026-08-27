@@ -4,9 +4,11 @@ import api from "../lib/api";
 import Modal from "../components/Modal";
 import AvatarCustomizer from "../components/AvatarCustomizer";
 import { defaultHumanAvatar, STATUS_COLORS, STATUS_LABEL } from "../lib/office";
+import { useI18n } from "../context/I18nContext";
 import { Bot, User, UserPlus, Mail } from "lucide-react";
 
 export default function Employees() {
+  const { t } = useI18n();
   const [emps, setEmps] = useState([]);
   const [depts, setDepts] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -43,12 +45,12 @@ export default function Employees() {
     <div className="p-8 max-w-[1400px]" data-testid="employees-page">
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className="font-display font-extrabold text-4xl tracking-tight">Employees</h1>
-          <p className="text-sm text-muted-foreground mt-1">Humans and AI agents in your company.</p>
+          <h1 className="font-display font-extrabold text-4xl tracking-tight">{t("emp.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("emp.sub")}</p>
         </div>
         <button onClick={() => setOpen(true)} data-testid="invite-employee-button"
           className="flex items-center gap-2 bg-human text-white font-semibold rounded-md px-4 py-2.5 text-sm hover:bg-human/90 transition-colors">
-          <UserPlus size={16} /> Invite Employee
+          <UserPlus size={16} /> {t("emp.invite")}
         </button>
       </div>
 

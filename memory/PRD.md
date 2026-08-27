@@ -61,6 +61,14 @@ comms, activity feed, dashboard analytics, multi-tenant isolation, secrets serve
 - Notifications center UI; role-based permissions enforcement per agent action.
 
 ## Next tasks
-1. AI Project Manager (architecture already supports project→tasks→assignees).
-2. Streaming agent output + richer 3D working animations (walk-to-desk pathfinding).
-3. Office themes & drag-to-arrange desks.
+- Custom 3D assets: support user-provided GLB (rigged + Idle/Walking/Sitting/Talking clips) via avatar.modelUrl and an office modelUrl loaded with useGLTF.
+- Wave 2: visual team/flow editor + sub-agents (hierarchy), multimodal generation (image via Nano Banana, music via Lyria), ready-made team templates.
+- i18n gaps: translate CreateAgentDialog labels, agent-panel stat labels, meeting toasts; emit i18n keys for backend activity/notification prose.
+
+## Iteration 2 (2026-06) — Living office + Turkish
+- Turkish language support + TR/EN switcher (default Turkish), i18n across nav + all page headers/buttons + Office/Meetings/Login/Register/Settings.
+- 3D behaviors: characters have legs, walk, idle-wander, sit at desks when working; agents walk to each other and show speech bubbles on real message events.
+- Meeting room + Calendar: schedule (time) or start-now; participants walk to the meeting-room chairs and sit; backend scheduler auto-activates/auto-ends; working agents are not pulled into meetings.
+- Per-agent human-in-the-loop auto_approve toggle (create dialog + agent panel).
+- Tested: backend 37/37 pass (meetings + auto_approve + regression); fixed CRITICAL Tasks.jsx `t` shadowing crash and several backend guards.
+

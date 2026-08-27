@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 
 export default function Register() {
   const { register } = useAuth();
+  const { t } = useI18n();
   const nav = useNavigate();
   const [form, setForm] = useState({ name: "", company_name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
@@ -33,37 +35,37 @@ export default function Register() {
           </div>
           <span className="font-display font-extrabold text-lg tracking-tight">AlloyOS</span>
         </div>
-        <h2 className="font-display font-bold text-2xl tracking-tight">Found your company</h2>
-        <p className="text-sm text-muted-foreground mt-1 mb-6">Spin up your virtual office in seconds.</p>
+        <h2 className="font-display font-bold text-2xl tracking-tight">{t("auth.foundTitle")}</h2>
+        <p className="text-sm text-muted-foreground mt-1 mb-6">{t("auth.foundSub")}</p>
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Your name</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t("auth.yourName")}</label>
             <input value={form.name} onChange={upd("name")} required data-testid="register-name"
               className="w-full bg-secondary/60 border border-border rounded-md px-3 py-2.5 text-sm outline-none focus:border-ai/60" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Company</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t("auth.company")}</label>
             <input value={form.company_name} onChange={upd("company_name")} required data-testid="register-company"
               className="w-full bg-secondary/60 border border-border rounded-md px-3 py-2.5 text-sm outline-none focus:border-ai/60" />
           </div>
         </div>
 
-        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Email</label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t("auth.email")}</label>
         <input value={form.email} onChange={upd("email")} type="email" required data-testid="register-email"
           className="w-full bg-secondary/60 border border-border rounded-md px-3 py-2.5 text-sm outline-none focus:border-ai/60 mb-3" />
 
-        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Password</label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t("auth.password")}</label>
         <input value={form.password} onChange={upd("password")} type="password" required minLength={6} data-testid="register-password"
           className="w-full bg-secondary/60 border border-border rounded-md px-3 py-2.5 text-sm outline-none focus:border-ai/60 mb-6" />
 
         <button type="submit" disabled={loading} data-testid="register-submit"
           className="w-full bg-ai text-black font-semibold rounded-md py-2.5 text-sm hover:bg-ai/90 transition-colors disabled:opacity-60">
-          {loading ? "Creating…" : "Create company"}
+          {loading ? t("auth.creating") : t("auth.createCompany")}
         </button>
         <p className="text-sm text-muted-foreground mt-6 text-center">
-          Already have one?{" "}
-          <Link to="/login" className="text-ai hover:underline" data-testid="go-login">Sign in</Link>
+          {t("auth.alreadyMember")}{" "}
+          <Link to="/login" className="text-ai hover:underline" data-testid="go-login">{t("auth.signin")}</Link>
         </p>
       </form>
     </div>

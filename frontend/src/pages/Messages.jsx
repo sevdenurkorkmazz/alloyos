@@ -2,11 +2,13 @@ import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import api from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 import { STATUS_COLORS } from "../lib/office";
 import { Bot, User, Send } from "lucide-react";
 
 export default function Messages() {
   const { me } = useAuth();
+  const { t } = useI18n();
   const [emps, setEmps] = useState([]);
   const [active, setActive] = useState(null);
   const [msgs, setMsgs] = useState([]);
@@ -46,8 +48,8 @@ export default function Messages() {
       {/* conversation list */}
       <div className="w-[300px] border-r border-border flex flex-col">
         <div className="p-5 border-b border-border">
-          <h1 className="font-display font-extrabold text-2xl tracking-tight">Messages</h1>
-          <p className="text-xs text-muted-foreground mt-1">Chat with humans and AI agents.</p>
+          <h1 className="font-display font-extrabold text-2xl tracking-tight">{t("msg.title")}</h1>
+          <p className="text-xs text-muted-foreground mt-1">{t("msg.sub")}</p>
         </div>
         <div className="flex-1 overflow-y-auto" data-testid="conversation-list">
           {others.map((e) => {
@@ -85,7 +87,7 @@ export default function Messages() {
               </div>
             </div>
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-3" data-testid="message-thread">
-              {msgs.length === 0 && <div className="text-sm text-muted-foreground text-center mt-10">No messages yet. Say hi 👋</div>}
+              {msgs.length === 0 && <div className="text-sm text-muted-foreground text-center mt-10">{t("msg.none")}</div>}
               {msgs.map((m) => {
                 const mine = m.from_employee === me?.id;
                 return (
@@ -106,7 +108,7 @@ export default function Messages() {
             </form>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Select a conversation</div>
+          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">{t("msg.select")}</div>
         )}
       </div>
     </div>

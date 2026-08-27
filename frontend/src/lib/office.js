@@ -56,3 +56,14 @@ export function deskPosition(index) {
   const z = row * 3.0 - 4.0;
   return { x, z };
 }
+
+// Meeting room (right side of the office)
+export const MEETING_TABLE = { x: 8.8, z: 1.2 };
+export const MEETING_SEATS = [
+  { x: 7.8, z: 0.0 }, { x: 8.8, z: 0.0 }, { x: 9.8, z: 0.0 },   // near side
+  { x: 7.8, z: 2.4 }, { x: 8.8, z: 2.4 }, { x: 9.8, z: 2.4 },   // far side
+];
+
+// walkable zone for idle wandering (excludes the meeting room at x>6.5)
+export const WANDER_ZONE = { minX: -5, maxX: 5, minZ: -3.5, maxZ: 6.5 };
+

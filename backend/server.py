@@ -132,6 +132,7 @@ class AgentIn(BaseModel):
     system_instructions: Optional[str] = ""
     avatar: Optional[dict] = None
     permissions: List[str] = ["execute_task", "message", "delegate"]
+    auto_approve: Optional[bool] = False
 
 
 class HumanIn(BaseModel):
@@ -151,6 +152,7 @@ class EmployeeUpdate(BaseModel):
     system_instructions: Optional[str] = None
     personality: Optional[str] = None
     skills: Optional[List[str]] = None
+    auto_approve: Optional[bool] = None
 
 
 class ProjectIn(BaseModel):
@@ -187,6 +189,13 @@ class MessageIn(BaseModel):
 class ApprovalDecision(BaseModel):
     decision: Literal["approve", "reject", "edit"]
     edited_output: Optional[str] = None
+
+
+class MeetingIn(BaseModel):
+    title: str
+    participants: List[str] = []
+    start_time: Optional[str] = None       # ISO; None => start immediately
+    duration_seconds: Optional[int] = 90
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +335,27 @@ async def run_agent_task(company_id: str, task_id: str):
             logger.exception("LLM error")
             output = f"[AI execution error] {str(e)}"
 
-        # 3. save output, move task to review, create approval
+        # 3. save output. auto-approve or send to human review
+        creator_emp = task.get("created_by_employee")
+        if agent.get("auto_approve"):
+            await db.tasks.update_one(
+                {"id": task_id},
+                {"$set": {"status": "completed", "output": output, "updated_at": now_iso()}},
+            )
+            await db.approvals.insert_one({
+                "id": new_id(), "company_id": company_id, "task_id": task_id,
+                "agent_id": agent["id"], "title": task["title"], "output": output,
+                "status": "auto_approved", "auto": True, "created_at": now_iso(),
+            })
+            await db.employees.update_one({"id": agent["id"]}, {"$inc": {"stats.completed": 1}})
+            if creator_emp and creator_emp != agent["id"]:
+                await deliver_message(company_id, agent["id"], creator_emp,
+                                      f"Completed \"{task['title']}\" (auto-approved).", kind="report")
+            await set_employee_status(company_id, agent["id"], "idle")
+            await log_activity(company_id, f"{agent['name']} completed \"{task['title']}\" (auto-approved).",
+                               agent["id"], "completed")
+            return
+
         await db.tasks.update_one(
             {"id": task_id},
             {"$set": {"status": "review", "output": output, "updated_at": now_iso()}},
@@ -344,7 +373,6 @@ async def run_agent_task(company_id: str, task_id: str):
         await db.approvals.insert_one(approval)
 
         # 4. message/envelope back to task creator
-        creator_emp = task.get("created_by_employee")
         if creator_emp and creator_emp != agent["id"]:
             await deliver_message(company_id, agent["id"], creator_emp,
                                   f"Completed \"{task['title']}\". Ready for your review.", kind="report")
@@ -532,6 +560,7 @@ async def create_agent(body: AgentIn, ctx=Depends(company_ctx)):
         "ai_model": body.ai_model or DEFAULT_MODEL,
         "system_instructions": body.system_instructions,
         "permissions": body.permissions, "avatar": avatar,
+        "auto_approve": bool(body.auto_approve),
         "status": "idle", "current_activity": "",
         "desk_index": idx, "desk": desk_position(idx),
         "stats": {"completed": 0, "active": 0}, "created_at": now_iso(),
@@ -841,6 +870,120 @@ async def dashboard_stats(ctx=Depends(company_ctx)):
 
 
 # ---------------------------------------------------------------------------
+# Meetings + calendar
+# ---------------------------------------------------------------------------
+MEETING_SEAT_COUNT = 6
+
+
+async def _activate_meeting(m):
+    cid = m["company_id"]
+    # don't pull agents that are actively working on a task
+    active_parts = []
+    for pid in m.get("participants", []):
+        emp = await db.employees.find_one({"id": pid, "company_id": cid})
+        if emp and emp.get("status") == "working":
+            continue
+        active_parts.append(pid)
+    seat_map = {pid: i % MEETING_SEAT_COUNT for i, pid in enumerate(active_parts)}
+    end_ts = time.time() + int(m.get("duration_seconds") or 90)
+    await db.meetings.update_one({"id": m["id"]},
+                                 {"$set": {"status": "active", "seat_map": seat_map, "end_ts": end_ts}})
+    for pid in active_parts:
+        await set_employee_status(cid, pid, "meeting", f"In meeting: {m['title']}")
+    await log_event(cid, "meeting", {"action": "start", "meeting_id": m["id"],
+                                     "title": m["title"], "seat_map": seat_map})
+    await log_activity(cid, f"Meeting \"{m['title']}\" started — participants heading to the room.", None, "meeting")
+
+
+async def _end_meeting(m):
+    cid = m["company_id"]
+    await db.meetings.update_one({"id": m["id"]}, {"$set": {"status": "done"}})
+    for pid in m.get("participants", []):
+        emp = await db.employees.find_one({"id": pid, "company_id": cid})
+        if emp and emp.get("status") == "meeting":
+            await set_employee_status(cid, pid, "idle")
+    await log_event(cid, "meeting", {"action": "end", "meeting_id": m["id"]})
+    await log_activity(cid, f"Meeting \"{m['title']}\" ended.", None, "meeting")
+
+
+async def meeting_scheduler():
+    while True:
+        try:
+            now_dt = datetime.now(timezone.utc)
+            async for m in db.meetings.find({"status": "scheduled", "start_time": {"$ne": None}}):
+                st = m.get("start_time")
+                try:
+                    dt = datetime.fromisoformat(st.replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    if dt <= now_dt:
+                        await _activate_meeting(clean(m))
+                except Exception:
+                    pass
+            async for m in db.meetings.find({"status": "active", "end_ts": {"$lte": time.time()}}):
+                await _end_meeting(clean(m))
+        except Exception:
+            logger.exception("meeting_scheduler error")
+        await asyncio.sleep(4)
+
+
+@api.get("/meetings")
+async def list_meetings(ctx=Depends(company_ctx)):
+    cid, _ = ctx
+    items = await db.meetings.find({"company_id": cid}).sort("created_at", -1).to_list(200)
+    return [clean(x) for x in items]
+
+
+@api.post("/meetings")
+async def create_meeting(body: MeetingIn, ctx=Depends(company_ctx)):
+    cid, _ = ctx
+    doc = {
+        "id": new_id(), "company_id": cid, "title": body.title,
+        "participants": body.participants[:MEETING_SEAT_COUNT],
+        "start_time": body.start_time, "duration_seconds": body.duration_seconds or 90,
+        "status": "scheduled", "seat_map": {}, "end_ts": None, "created_at": now_iso(),
+    }
+    await db.meetings.insert_one(doc)
+    await log_activity(cid, f"Meeting \"{body.title}\" was scheduled.", None, "meeting")
+    if not body.start_time:
+        await _activate_meeting(doc)
+    return clean(await db.meetings.find_one({"id": doc["id"]}))
+
+
+@api.post("/meetings/{meeting_id}/start")
+async def start_meeting(meeting_id: str, ctx=Depends(company_ctx)):
+    cid, _ = ctx
+    m = clean(await db.meetings.find_one({"id": meeting_id, "company_id": cid}))
+    if not m:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    if m["status"] == "active":
+        return {"ok": True}
+    await _activate_meeting(m)
+    return {"ok": True}
+
+
+@api.post("/meetings/{meeting_id}/end")
+async def end_meeting(meeting_id: str, ctx=Depends(company_ctx)):
+    cid, _ = ctx
+    m = clean(await db.meetings.find_one({"id": meeting_id, "company_id": cid}))
+    if not m:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    if m["status"] == "done":
+        return {"ok": True}
+    await _end_meeting(m)
+    return {"ok": True}
+
+
+@api.delete("/meetings/{meeting_id}")
+async def delete_meeting(meeting_id: str, ctx=Depends(company_ctx)):
+    cid, _ = ctx
+    res = await db.meetings.delete_one({"id": meeting_id, "company_id": cid})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # App wiring
 # ---------------------------------------------------------------------------
 app.include_router(api)
@@ -858,6 +1001,7 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.employees.create_index("company_id")
     await db.events.create_index([("company_id", 1), ("ts", 1)])
+    asyncio.create_task(meeting_scheduler())
 
 
 @app.on_event("shutdown")

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import api from "../lib/api";
 import Modal from "./Modal";
 import { AI_BODY_COLORS } from "../lib/office";
+import { useI18n } from "../context/I18nContext";
 import { Sparkles } from "lucide-react";
 
 const MODELS = [
@@ -16,9 +17,11 @@ const empty = {
   name: "", role: "", department_id: "", description: "", personality: "",
   skills: "", responsibilities: "", system_instructions: "",
   ai_provider: "gemini", ai_model: "gemini-3-flash-preview", bodyColor: "#00E599",
+  auto_approve: false,
 };
 
 export default function CreateAgentDialog({ open, onClose, onCreated, depts }) {
+  const { t } = useI18n();
   const [templates, setTemplates] = useState([]);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
@@ -42,6 +45,7 @@ export default function CreateAgentDialog({ open, onClose, onCreated, depts }) {
         skills: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
         responsibilities: form.responsibilities, system_instructions: form.system_instructions,
         ai_provider: form.ai_provider, ai_model: form.ai_model,
+        auto_approve: form.auto_approve,
         avatar: { bodyColor: form.bodyColor, visorColor: "#0b1220", accent: form.bodyColor, antenna: true },
       });
       toast.success(`${form.name} created`);
@@ -124,9 +128,19 @@ export default function CreateAgentDialog({ open, onClose, onCreated, depts }) {
           </div>
         </div>
 
+        <label className="flex items-center justify-between gap-3 border border-border rounded-md px-3 py-2.5 bg-secondary/40 cursor-pointer">
+          <div>
+            <div className="text-sm font-medium">{t("agents.autoApprove")}</div>
+            <div className="text-xs text-muted-foreground">{t("agents.autoApproveHint")}</div>
+          </div>
+          <input type="checkbox" checked={form.auto_approve} data-testid="agent-auto-approve"
+            onChange={(e) => setForm({ ...form, auto_approve: e.target.checked })} className="accent-[#00E599] h-4 w-4" />
+        </label>
+
+
         <button type="submit" disabled={saving} data-testid="agent-submit"
           className="w-full flex items-center justify-center gap-2 bg-ai text-black font-semibold rounded-md py-2.5 text-sm hover:bg-ai/90 transition-colors disabled:opacity-60">
-          <Sparkles size={16} /> {saving ? "Creating…" : "Create AI Employee"}
+          <Sparkles size={16} /> {saving ? t("auth.creating") : t("agents.create")}
         </button>
       </form>
     </Modal>

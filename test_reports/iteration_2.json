@@ -1,0 +1,59 @@
+{
+  "summary": "Iteration-2 focused test of the NEW features (Meetings/Calendar, per-agent auto_approve, TR/EN i18n, 3D office) + light regression. Backend: new pytest suite /app/backend/tests/test_meetings_autoapprove.py (9 cases) — 9/9 pass: immediate meeting (status active, seat_map 0..5, participants flipped to 'meeting', meeting/start event with seat_map, end -> done + participants back to idle), 6-participant cap, 404s on start/end of unknown id, auth required, scheduler auto-activation of a near-future meeting (~4s tick) and auto-end after duration_seconds (20s) with participants reverted to idle. auto_approve: create AI agent with auto_approve=true persists; assigned task reached status 'completed' directly with real LLM output, NO pending approval, stats.completed +1, agent back to idle; auto_approve OFF agent still went Working->Review + pending approval + status 'waiting'; PUT /api/employees/{id} persists auto_approve both ways. Existing regression suite backend_test.py 28/28 still pass (37/37 total). Frontend (Playwright, real preview URL): TR default on login ('Giriş yap'), sidebar TR nav (Panel/Ofis/Toplantılar), lang-en/lang-tr + settings-lang-en switch works and persists via localStorage alloy_lang across reload; Meetings page: New Meeting modal, 21 participants list with 6-max cap enforced, Start-now default, duration, Create -> row appears AKTIF with 'Bitir', End button moves it to BITTI; scheduled path (start-now off -> datetime input -> PLANLANDI -> 'Şimdi Başlat' -> AKTIF) works; 3D Office renders canvas with 'Meeting Room' label and 6 avatars seated at the meeting table, HUD shows '6 meeting', zero console errors; Agents page: agent-auto-approve toggle in Create dialog and panel-auto-approve toggle persist after reload; Assign & Run on an auto-approve agent bumped Completed 1->2 with no review state. BLOCKER FOUND: /tasks page crashes completely (Uncaught runtime error 't is not a function') — i18n `t` is shadowed by the map/filter callback param `t` in Tasks.jsx.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "meeting_scheduler()", "issue": "Due-time check compares ISO strings lexicographically (start_time <= datetime.now(utc).isoformat()). Works only for UTC 'Z'/'+00:00' strings; a start_time with a non-UTC offset (e.g. 2026-07-01T13:00:00+03:00) sorts wrong and activates ~offset-hours late. Parse to datetime (or store an epoch start_ts) and compare numerically."},
+      {"endpoint": "POST /api/meetings", "issue": "participants are silently truncated to 6 (body.participants[:6]) with no 422/validation feedback; also participant ids are not validated to exist/belong to the company, so a bogus id is stored and rendered as an empty chip in the UI."},
+      {"endpoint": "POST /api/meetings/{id}/end", "issue": "Not idempotent: ending an already 'done' meeting returns 200 and re-emits the 'meeting end' event + 'Meeting ... ended.' activity entry."},
+      {"endpoint": "DELETE /api/meetings/{id}", "issue": "Returns {ok:true} for a non-existent id (should be 404); no delete-meeting activity/event either."},
+      {"endpoint": "run_agent_task (auto_approve branch)", "issue": "Auto-approve path inserts an approvals document with status 'approve' (not 'approved'/'auto_approved'). It shows up in GET /api/approvals with a non-standard status value; the UI filters on 'pending' so it is currently harmless, but the enum is inconsistent."},
+      {"endpoint": "POST /api/meetings", "issue": "duration_seconds is not bounded server-side (UI limits 20-600); a huge/negative value is accepted, so end_ts can be in the past (immediate auto-end) or effectively never."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "pages/Tasks.jsx", "issue": "CRITICAL REGRESSION: whole /tasks page white-screens with 'TypeError: t is not a function'. The i18n translate fn `const { t } = useI18n()` (line 13) is shadowed by the task callback param `t` in `tasks.filter((t) => ...)` (line 68) and `col.map((t) => {...})` (line 77); inside that map, `t(\"tasks.review\")` (line 97) and `t(\"tasks.running\")` (line 102) call a task object. Crashes as soon as any task is in review or working status (always true in the demo company). Rename the callback param to `tk`.", "selector": "[data-testid=\"kanban-board\"]", "priority": "CRITICAL"},
+      {"component": "pages/Tasks.jsx", "issue": "Kanban column headings use a hardcoded English LABEL map (Backlog/Assigned/Working/Review/Completed) — not translated.", "selector": "[data-testid^=\"kanban-col-\"]", "priority": "MEDIUM"},
+      {"component": "components/CreateAgentDialog.jsx", "issue": "Dialog is fully untranslated: title 'Create AI Employee', 'Start from a template', all field labels and the auto-approve helper text stay English in TR mode.", "selector": "[data-testid=\"create-agent-modal\"]", "priority": "MEDIUM"},
+      {"component": "pages/Agents.jsx agent panel", "issue": "Panel stat labels ('Completed', 'Active', 'Waiting'), the status pill ('Idle') and 'N messages' are hardcoded English while the rest of the panel is Turkish.", "selector": "[data-testid=\"agent-panel\"]", "priority": "LOW"},
+      {"component": "pages/Meetings.jsx toasts", "issue": "Toasts are hardcoded English in TR mode: 'Meeting started — open the Office!', 'Meeting scheduled', 'Started', 'Failed'.", "selector": "[data-testid=\"meeting-submit\"]", "priority": "LOW"},
+      {"component": "pages/Meetings.jsx participant picker", "issue": "Clicking a 7th participant is silently ignored (no toast/disabled state) — user gets no feedback about the 6-seat cap.", "selector": "[data-testid=\"participant-list\"] button", "priority": "LOW"},
+      {"component": "pages/Meetings.jsx", "issue": "Uses the browser-native <input type=\"datetime-local\"> for scheduling instead of the shadcn calendar/time component used elsewhere in the design system.", "selector": "[data-testid=\"meeting-when\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Task board after AI run", "issue": "Could not verify the Kanban/review UI at all because /tasks crashes (see CRITICAL above). Auto-approve completion was verified via the agent panel stats and the API instead.", "affected_selectors": ["[data-testid=\"kanban-board\"]", "[data-testid^=\"task-card-\"]", "[data-testid^=\"review-task-\"]"]}
+    ],
+    "design_issues": [
+      {"screen": "Dashboard / Activity", "issues": ["Activity-feed and notification strings are generated in English on the backend (e.g. 'Task \"X\" created.', 'Meeting \"X\" started — participants heading to the room.') so the TR UI shows mixed languages. Consider emitting i18n keys + params instead of prose."]},
+      {"screen": "3D Office (/office)", "issues": ["The stray floating neon horizontal bar above the floor reported in iteration_1 is still present (visible green line at the top of the scene).", "Office HUD legend is English (Idle/Waiting/Talking/Working/Meeting/Completed) while the header counters are Turkish."]},
+      {"screen": "Meetings list", "issues": ["Participant chips show only first names, so seeded duplicates render as 'TEST_Aria, TEST_Aria, TEST_Aria'; no date/time or remaining-duration is displayed for scheduled/active meetings."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_meetings_autoapprove.py", "/app/backend/tests/backend_test.py", "/app/test_reports/pytest/iter2_results.xml", "/app/test_reports/pytest/iter2_regression.xml"],
+  "action_items": [
+    "CRITICAL: fix the `t` shadowing in /app/frontend/src/pages/Tasks.jsx (lines 68/77 -> rename callback param; keep t() for i18n). /tasks is currently a hard crash.",
+    "Translate Tasks kanban column labels, CreateAgentDialog, agent-panel stat labels and Meetings toasts (i18n gaps).",
+    "meeting_scheduler: compare parsed datetimes / epoch instead of ISO strings so non-UTC start_time offsets activate on time.",
+    "Validate meeting participants (exist + belong to company, reject >6 with 422) and bound duration_seconds server-side.",
+    "Make POST /meetings/{id}/end idempotent and return 404 on DELETE of a missing meeting.",
+    "Normalise the auto-approve approvals record status ('approve' -> 'auto_approved') for a consistent enum.",
+    "Emit i18n keys (or dual-language) for backend activity/notification text instead of English prose.",
+    "Still open from iteration_1: stray floating bars in OfficeScene, approvals double-decision guard, 404s for PUT/DELETE employees, company scoping in deliver_message, server.py size (now 991 lines)."
+  ],
+  "critical_code_review_comments": [
+    "Tasks.jsx variable shadowing of the i18n `t` is an unguarded crash path — add an ESLint no-shadow rule; every page that destructures `t` must not reuse `t` as a callback param.",
+    "server.py is now 991 lines (was 858) — well past the 700-line guideline; meetings + AI runner are good extraction candidates.",
+    "meeting_scheduler polls every 4s with two full collection scans and no index on (status, start_time)/(status, end_ts); add indexes or it degrades with meeting volume.",
+    "_activate_meeting overwrites employee status unconditionally — an agent actively 'working' on an LLM task is yanked into 'meeting' and reverted to 'idle' when the meeting ends, losing its working state (and run_agent_task later sets it again). Consider skipping/restoring prior status.",
+    "Meetings.jsx polls GET /meetings + GET /employees every 3s for all users; consider reusing the existing /events stream instead of duplicate polling."
+  ],
+  "updated_files": ["/app/backend/tests/test_meetings_autoapprove.py"],
+  "success_rate": {"backend": "100% (37/37: 9 new meetings/auto-approve + 28 regression)", "frontend": "~85% — all new Meetings/i18n/auto-approve flows pass; /tasks page is a hard crash"},
+  "seed_data_creation": "Demo company (demo@alloy.os) now also has: AI agents TEST_AutoBot (auto_approve=ON), TEST_ManualBot, TEST_ToggleBot; tasks TEST_AutoApprove Task, TEST_Manual Review Task, QA_UI AutoApprove slogan for tea; meetings QA_UI Meeting, QA_End Test, QA_Scheduled UI (all ended/done; API-created ones deleted by fixture). Agent 'Alex' auto_approve was toggled during UI testing and reverted to false via API.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "demo@alloy.os / demo1234 (valid)",
+  "context_for_next_testing_agent": "Run: cd /app/backend && python -m pytest tests/ -v (pytest.ini forces -n 2 --dist loadscope). New file tests/test_meetings_autoapprove.py has module-scoped login fixtures; the scheduler test takes ~45s (meeting duration 20s + 4s tick). GET /api/events returns {events:[...], now:...} not a list. Agents-page testids for the panel task box are give-task-input / give-task-submit (NOT assign-task-*). After the Tasks.jsx `t` shadowing fix, re-verify: /tasks kanban render, review modal + Approve/Reject, and that an auto-approve agent's task lands in the Completed column with no Review button.",
+  "rca_of_the_issue": "/tasks crash RCA: pages/Tasks.jsx destructures the i18n translator as `t` (line 13) and then reuses `t` as the task element in `tasks.filter((t) => ...)` (line 68) and `col.map((t) => ...)` (line 77). Inside the map body the calls `t(\"tasks.review\")` (line 97, rendered for review-status cards) and `t(\"tasks.running\")` (line 102, working-status cards) invoke a plain task object => 'TypeError: t is not a function', which React escalates to a full-page error boundary/dev overlay. Reproduce: login as demo@alloy.os, ensure at least one task is in review or working (assign a task to a non-auto-approve agent), open /tasks. Fix: rename the callback param (e.g. `tk`) in lines 68/77 and its body references, keeping `t()` for translations."
+}

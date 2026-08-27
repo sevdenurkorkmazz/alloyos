@@ -2,12 +2,14 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import api from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/I18nContext";
 import CreateAgentDialog from "../components/CreateAgentDialog";
 import { STATUS_COLORS, STATUS_LABEL } from "../lib/office";
 import { Bot, Plus, X, Play, Send, Zap, CheckCircle2, Clock, MessageSquare } from "lucide-react";
 
 export default function Agents() {
   const { me } = useAuth();
+  const { t } = useI18n();
   const [agents, setAgents] = useState([]);
   const [allEmps, setAllEmps] = useState([]);
   const [depts, setDepts] = useState([]);
@@ -68,20 +70,20 @@ export default function Agents() {
     <div className="p-8 max-w-[1400px]" data-testid="agents-page">
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className="font-display font-extrabold text-4xl tracking-tight">AI Agents</h1>
-          <p className="text-sm text-muted-foreground mt-1">Autonomous employees that think, work and collaborate.</p>
+          <h1 className="font-display font-extrabold text-4xl tracking-tight">{t("agents.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("agents.sub")}</p>
         </div>
         <button onClick={() => setOpen(true)} data-testid="create-agent-button"
           className="flex items-center gap-2 bg-ai text-black font-semibold rounded-md px-4 py-2.5 text-sm hover:bg-ai/90 transition-colors">
-          <Plus size={16} /> Create AI Employee
+          <Plus size={16} /> {t("agents.create")}
         </button>
       </div>
 
       {agents.length === 0 ? (
         <div className="border border-dashed border-border rounded-xl p-16 text-center" data-testid="agents-empty">
           <Bot size={40} className="mx-auto text-muted-foreground mb-3" />
-          <div className="font-semibold">No AI agents yet</div>
-          <p className="text-sm text-muted-foreground mt-1">Create your first autonomous employee to get started.</p>
+          <div className="font-semibold">{t("agents.emptyT")}</div>
+          <p className="text-sm text-muted-foreground mt-1">{t("agents.emptyS")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-4" data-testid="agents-grid">
@@ -165,30 +167,46 @@ export default function Agents() {
                 </div>
               )}
 
+              <label className="mt-4 flex items-center justify-between gap-3 border border-border rounded-md px-3 py-2.5 bg-secondary/40 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium">{t("agents.autoApprove")}</div>
+                  <div className="text-xs text-muted-foreground">{t("agents.autoApproveHint")}</div>
+                </div>
+                <input type="checkbox" data-testid="panel-auto-approve"
+                  checked={!!(detail?.auto_approve ?? sel.auto_approve)}
+                  onChange={async (e) => {
+                    const v = e.target.checked;
+                    setDetail((d) => d ? { ...d, auto_approve: v } : d);
+                    setSel((s) => ({ ...s, auto_approve: v }));
+                    try { await api.put(`/employees/${sel.id}`, { auto_approve: v }); } catch { toast.error("Failed"); }
+                  }}
+                  className="accent-[#00E599] h-4 w-4" />
+              </label>
+
               {/* give task */}
               <form onSubmit={giveTask} className="mt-6 border-t border-border pt-5" data-testid="give-task-form">
-                <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5"><Play size={13} /> Give a task</div>
+                <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5"><Play size={13} /> {t("agents.giveTask")}</div>
                 <textarea value={task} onChange={(e) => setTask(e.target.value)} rows={2} placeholder="Research our top 3 competitors' latest campaigns…" data-testid="give-task-input"
                   className="w-full bg-secondary/60 border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-ai/60" />
                 <button type="submit" className="mt-2 w-full flex items-center justify-center gap-2 bg-ai text-black font-semibold rounded-md py-2 text-sm hover:bg-ai/90 transition-colors" data-testid="give-task-submit">
-                  <Play size={14} /> Assign & Run
+                  <Play size={14} /> {t("agents.assignRun")}
                 </button>
               </form>
 
               {/* delegate */}
               <form onSubmit={delegate} className="mt-5 border-t border-border pt-5" data-testid="delegate-form">
-                <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5"><Send size={13} /> Delegate to a coworker</div>
+                <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5"><Send size={13} /> {t("agents.delegate")}</div>
                 <select value={delegateTo} onChange={(e) => setDelegateTo(e.target.value)} data-testid="delegate-target"
                   className="w-full bg-secondary/60 border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-ai/60 mb-2">
-                  <option value="">Choose employee…</option>
+                  <option value="">{t("agents.chooseEmp")}</option>
                   {allEmps.filter((x) => x.id !== sel.id).map((x) => (
                     <option key={x.id} value={x.id}>{`${x.name} · ${x.role}${x.type === "ai" ? " (AI)" : ""}`}</option>
                   ))}
                 </select>
-                <input value={delegateMsg} onChange={(e) => setDelegateMsg(e.target.value)} placeholder="Task for them…" data-testid="delegate-input"
+                <input value={delegateMsg} onChange={(e) => setDelegateMsg(e.target.value)} placeholder={t("agents.taskForThem")} data-testid="delegate-input"
                   className="w-full bg-secondary/60 border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-ai/60" />
                 <button type="submit" className="mt-2 w-full flex items-center justify-center gap-2 bg-secondary border border-border rounded-md py-2 text-sm hover:bg-accent transition-colors" data-testid="delegate-submit">
-                  <Send size={14} /> Send task (flying envelope)
+                  <Send size={14} /> {t("agents.sendEnvelope")}
                 </button>
               </form>
 

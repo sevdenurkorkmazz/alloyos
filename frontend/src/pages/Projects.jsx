@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import api from "../lib/api";
 import Modal from "../components/Modal";
+import { useI18n } from "../context/I18nContext";
 import { Plus, FolderKanban } from "lucide-react";
 
 const COLORS = ["#00E599", "#FF6B35", "#3B82F6", "#8B5CF6", "#F59E0B", "#10B981"];
 
 export default function Projects() {
+  const { t } = useI18n();
   const [projects, setProjects] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", color: "#00E599" });
@@ -27,19 +29,19 @@ export default function Projects() {
     <div className="p-8 max-w-[1400px]" data-testid="projects-page">
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className="font-display font-extrabold text-4xl tracking-tight">Projects</h1>
-          <p className="text-sm text-muted-foreground mt-1">Group tasks and assign humans + AI together.</p>
+          <h1 className="font-display font-extrabold text-4xl tracking-tight">{t("proj.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("proj.sub")}</p>
         </div>
         <button onClick={() => setOpen(true)} data-testid="new-project-button"
           className="flex items-center gap-2 bg-ai text-black font-semibold rounded-md px-4 py-2.5 text-sm hover:bg-ai/90 transition-colors">
-          <Plus size={16} /> New Project
+          <Plus size={16} /> {t("proj.new")}
         </button>
       </div>
 
       {projects.length === 0 ? (
         <div className="border border-dashed border-border rounded-xl p-16 text-center">
           <FolderKanban size={40} className="mx-auto text-muted-foreground mb-3" />
-          <div className="font-semibold">No projects yet</div>
+          <div className="font-semibold">{t("proj.emptyT")}</div>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-4" data-testid="projects-grid">
@@ -49,7 +51,7 @@ export default function Projects() {
               <div className="font-semibold">{p.name}</div>
               <p className="text-sm text-muted-foreground mt-1 min-h-[40px]">{p.description || "No description"}</p>
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                <span className="font-mono text-xs text-muted-foreground">{p.task_count} tasks</span>
+                <span className="font-mono text-xs text-muted-foreground">{p.task_count} {t("proj.tasks")}</span>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ color: p.color, border: `1px solid ${p.color}55` }}>ACTIVE</span>
               </div>
             </div>
