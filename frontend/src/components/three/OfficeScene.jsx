@@ -42,6 +42,22 @@ function OfficeModel({ url }) {
 }
 useGLTF.preload(OFFICE_MODEL_URL);
 
+const HUMAN_MODEL_URL = "/models/human.glb";
+const HUMAN_YAW = Math.PI;  // adjust model facing to match app convention (+z front)
+useGLTF.preload(HUMAN_MODEL_URL);
+
+function useHumanTemplate() {
+  const { scene } = useGLTF(HUMAN_MODEL_URL);
+  return useMemo(() => {
+    const probe = scene.clone(true);
+    probe.updateMatrixWorld(true);
+    probe.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.computeBoundingBox(); });
+    const box = new THREE.Box3().setFromObject(probe);
+    const size = box.getSize(new THREE.Vector3());
+    return { proto: scene, scale: 1.85 / (size.y || 1), foot: box.min.y };
+  }, [scene]);
+}
+
 /* ---------------- Heads ---------------- */
 function HumanHead({ avatar = {} }) {
   const skin = avatar.skinTone || "#e8b58f";
@@ -93,7 +109,7 @@ function AiHead({ avatar = {}, working }) {
 }
 
 /* ---------------- Movable person ---------------- */
-function Person({ emp, mode, target, home, facePoint, selected, onSelect, bubble }) {
+function Person({ emp, mode, target, home, facePoint, selected, onSelect, bubble, humanTpl }) {
   const root = useRef();       // world position group
   const inner = useRef();      // vertical (sit) offset
   const legL = useRef();
@@ -101,6 +117,8 @@ function Person({ emp, mode, target, home, facePoint, selected, onSelect, bubble
   const pos = useRef(new THREE.Vector3(home.x, 0, home.z));
   const wander = useRef({ target: new THREE.Vector3(home.x, 0, home.z), next: 0 });
   const isAi = emp.type === "ai";
+  const useGlb = !isAi && humanTpl;
+  const humanClone = useMemo(() => (useGlb ? humanTpl.proto.clone(true) : null), [useGlb, humanTpl]);
   const accent = isAi ? (emp.avatar?.bodyColor || "#00E599") : (emp.avatar?.shirtColor || "#FF6B35");
   const shirt = isAi ? "#1b1b22" : (emp.avatar?.shirtColor || "#3B82F6");
   const legColor = isAi ? "#26262c" : "#2b2f3a";
@@ -167,22 +185,30 @@ function Person({ emp, mode, target, home, facePoint, selected, onSelect, bubble
   return (
     <group ref={root} onClick={(e) => { e.stopPropagation(); onSelect(emp); }}>
       <group ref={inner}>
-        {/* torso */}
-        <RoundedBox args={[0.5, 0.55, 0.34]} radius={0.16} smoothness={4} position={[0, 0.72, 0]} castShadow>
-          <meshStandardMaterial color={shirt} roughness={0.6} metalness={isAi ? 0.5 : 0}
-            emissive={isAi ? accent : "#000"} emissiveIntensity={isAi ? (working ? 0.4 : 0.15) : 0} />
-        </RoundedBox>
-        {isAi ? <AiHead avatar={emp.avatar} working={working} /> : <HumanHead avatar={emp.avatar} />}
-        {/* arms */}
-        <mesh position={[0.31, 0.72, 0.05]} rotation={[0.2, 0, 0.15]}><capsuleGeometry args={[0.075, 0.32, 4, 8]} /><meshStandardMaterial color={shirt} metalness={isAi ? 0.4 : 0} /></mesh>
-        <mesh position={[-0.31, 0.72, 0.05]} rotation={[0.2, 0, -0.15]}><capsuleGeometry args={[0.075, 0.32, 4, 8]} /><meshStandardMaterial color={shirt} metalness={isAi ? 0.4 : 0} /></mesh>
-        {/* legs (pivot at hip y=0.45) */}
-        <group ref={legL} position={[0.13, 0.45, 0]}>
-          <mesh position={[0, -0.22, 0]}><capsuleGeometry args={[0.08, 0.32, 4, 8]} /><meshStandardMaterial color={legColor} /></mesh>
-        </group>
-        <group ref={legR} position={[-0.13, 0.45, 0]}>
-          <mesh position={[0, -0.22, 0]}><capsuleGeometry args={[0.08, 0.32, 4, 8]} /><meshStandardMaterial color={legColor} /></mesh>
-        </group>
+        {useGlb ? (
+          <group scale={humanTpl.scale} position={[0, -humanTpl.foot * humanTpl.scale, 0]} rotation={[0, HUMAN_YAW, 0]}>
+            <primitive object={humanClone} />
+          </group>
+        ) : (
+          <>
+            {/* torso */}
+            <RoundedBox args={[0.5, 0.55, 0.34]} radius={0.16} smoothness={4} position={[0, 0.72, 0]} castShadow>
+              <meshStandardMaterial color={shirt} roughness={0.6} metalness={isAi ? 0.5 : 0}
+                emissive={isAi ? accent : "#000"} emissiveIntensity={isAi ? (working ? 0.4 : 0.15) : 0} />
+            </RoundedBox>
+            {isAi ? <AiHead avatar={emp.avatar} working={working} /> : <HumanHead avatar={emp.avatar} />}
+            {/* arms */}
+            <mesh position={[0.31, 0.72, 0.05]} rotation={[0.2, 0, 0.15]}><capsuleGeometry args={[0.075, 0.32, 4, 8]} /><meshStandardMaterial color={shirt} metalness={isAi ? 0.4 : 0} /></mesh>
+            <mesh position={[-0.31, 0.72, 0.05]} rotation={[0.2, 0, -0.15]}><capsuleGeometry args={[0.075, 0.32, 4, 8]} /><meshStandardMaterial color={shirt} metalness={isAi ? 0.4 : 0} /></mesh>
+            {/* legs (pivot at hip y=0.45) */}
+            <group ref={legL} position={[0.13, 0.45, 0]}>
+              <mesh position={[0, -0.22, 0]}><capsuleGeometry args={[0.08, 0.32, 4, 8]} /><meshStandardMaterial color={legColor} /></mesh>
+            </group>
+            <group ref={legR} position={[-0.13, 0.45, 0]}>
+              <mesh position={[0, -0.22, 0]}><capsuleGeometry args={[0.08, 0.32, 4, 8]} /><meshStandardMaterial color={legColor} /></mesh>
+            </group>
+          </>
+        )}
       </group>
 
       {/* status ring */}
@@ -293,6 +319,19 @@ function BaseFloor() {
   );
 }
 
+/* ---------------- People (loads human GLB template) ---------------- */
+function People({ resolved, selectedId, onSelect }) {
+  const humanTpl = useHumanTemplate();
+  return (
+    <>
+      {resolved.map(({ emp, home, mode, target, facePoint, bubble }) => (
+        <Person key={emp.id} emp={emp} home={home} mode={mode} target={target}
+          facePoint={facePoint} bubble={bubble} selected={selectedId === emp.id} onSelect={onSelect} humanTpl={humanTpl} />
+      ))}
+    </>
+  );
+}
+
 /* ---------------- Scene root ---------------- */
 export default function OfficeScene({ employees = [], envelopes = [], onRemoveEnvelope, selectedId, onSelect, meetingSeats = {}, conversations = [] }) {
   const meetingActive = Object.keys(meetingSeats).length > 0;
@@ -341,10 +380,13 @@ export default function OfficeScene({ employees = [], envelopes = [], onRemoveEn
       </Suspense>
       <MeetingRoom active={meetingActive} />
 
-      {resolved.map(({ emp, home, mode, target, facePoint, bubble }) => (
+      {resolved.map(({ emp, home, mode, target, facePoint, bubble }) => emp.type === "ai" ? (
         <Person key={emp.id} emp={emp} home={home} mode={mode} target={target}
           facePoint={facePoint} bubble={bubble} selected={selectedId === emp.id} onSelect={onSelect} />
-      ))}
+      ) : null)}
+      <Suspense fallback={null}>
+        <People resolved={resolved.filter((r) => r.emp.type !== "ai")} selectedId={selectedId} onSelect={onSelect} />
+      </Suspense>
 
       {envelopes.map((env) => (
         <Envelope key={env.key} from={env.from} to={env.to} color={env.color} onDone={() => onRemoveEnvelope(env.key)} />
