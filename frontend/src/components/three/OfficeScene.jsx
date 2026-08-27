@@ -14,7 +14,20 @@ function OfficeModel({ url }) {
   useLayoutEffect(() => {
     cloned.updateMatrixWorld(true);
     cloned.traverse((o) => {
-      if (o.isMesh && o.geometry) { o.geometry.computeBoundingBox(); o.receiveShadow = true; }
+      if (o.isMesh && o.geometry) {
+        o.geometry.computeBoundingBox();
+        o.receiveShadow = true;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        mats.forEach((m) => {
+          if (!m) return;
+          if (m.color) m.color.multiplyScalar(1.35);
+          if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+          if (m.metalness !== undefined) m.metalness = Math.min(m.metalness, 0.2);
+          if (m.roughness !== undefined) m.roughness = Math.min(m.roughness, 0.9);
+          m.envMapIntensity = 1.4;
+          m.needsUpdate = true;
+        });
+      }
     });
     let box = new THREE.Box3().setFromObject(cloned);
     const size = box.getSize(new THREE.Vector3());
@@ -314,12 +327,15 @@ export default function OfficeScene({ employees = [], envelopes = [], onRemoveEn
   });
 
   return (
-    <Canvas shadows camera={{ position: [2, 9, 14], fov: 44 }} dpr={[1, 1.7]} gl={{ antialias: true }}>
-      <color attach="background" args={["#09090B"]} />
-      <fog attach="fog" args={["#09090B", 20, 44]} />
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[6, 12, 6]} intensity={1.1} castShadow shadow-mapSize={[1024, 1024]} />
-      <Environment preset="city" />
+    <Canvas shadows camera={{ position: [2, 9, 14], fov: 44 }} dpr={[1, 1.7]}
+      gl={{ antialias: true, toneMappingExposure: 1.45 }}>
+      <color attach="background" args={["#181820"]} />
+      <fog attach="fog" args={["#181820", 26, 60]} />
+      <ambientLight intensity={1.0} />
+      <hemisphereLight args={["#ffffff", "#3a3a44", 0.9]} />
+      <directionalLight position={[8, 14, 8]} intensity={1.6} castShadow shadow-mapSize={[1024, 1024]} />
+      <directionalLight position={[-8, 10, -6]} intensity={0.7} color="#cfd6ff" />
+      <Environment preset="city" environmentIntensity={1.25} />
 
       <BaseFloor />
       <Suspense fallback={null}>
