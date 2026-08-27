@@ -1,0 +1,49 @@
+{
+  "summary": "Full first-pass E2E test of AlloyOS. Backend: created /app/backend/tests/backend_test.py (28 pytest cases covering auth/register/login/me, departments, employees (AI+human) CRUD, projects, task->real LLM run->review->approval (approve + reject + re-run), events (status/envelope), messaging/conversations/notifications, dashboard stats, multi-tenant isolation) — 28/28 passing. Real Gemini LLM output confirmed (589-char structured output, no [AI execution error]). Frontend: Playwright flows verified login, register-new-company, dashboard stats + live activity, create AI agent from template, Assign & Run from agent panel, New Task dialog with AI assignee, task auto-transition to Review, review modal with real LLM output, Approve->Completed, Reject->Assigned, invite human employee, project creation, department creation, messaging send/thread, 3D Office canvas + character labels, logout, and tenant isolation in UI (fresh company sees only its CEO, no agents/tasks). No blocking bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/approvals/{id}/decision", "issue": "No idempotency guard: an already approved/rejected approval can be decided again, re-incrementing agent stats.completed and re-completing the task."},
+      {"endpoint": "PUT/DELETE /api/employees/{id}", "issue": "Returns 200 for non-existent ids (PUT returns null body, DELETE returns {ok:true}); should be 404."},
+      {"endpoint": "POST /api/messages", "issue": "from_employee/to_employee are not validated to belong to the caller's company (deliver_message looks up employees without company_id filter), so a foreign employee id is accepted and its name leaks into activity/notification text."},
+      {"endpoint": "GET /api/messages", "issue": "with_employee/employee are ignored unless BOTH are supplied; a single param silently returns all company messages."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Tasks review modal toast", "issue": "Typo in toast copy: 'Task rejectd' (should be 'Task rejected')", "selector": "[data-testid=\"reject-button\"]", "priority": "LOW"},
+      {"component": "Agents delegate select", "issue": "React console error: '<span> cannot be a child of <option>' (dynamic expression wrapper inside <option>). Use a single template string child, e.g. {`${x.name} · ${x.role}`}", "selector": "[data-testid=\"delegate-target\"]", "priority": "LOW"},
+      {"component": "CreateAgentDialog templates", "issue": "Template buttons had no data-testid — added data-testid=\"template-{key}\" (fix applied by tester)", "selector": "[data-testid=\"agent-templates\"] button", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "3D Office (/office)", "issues": ["Two stray floating horizontal bars (green and orange) render in the empty space above the floor in every company — look like detached/mis-positioned neon trim geometry, visible in both a 12-employee and a 2-employee office.", "HUD only counts 'Working'; an agent in 'Waiting' state shows a purple label above the desk but is not summarized in the HUD."]},
+      {"screen": "Messages (/messages)", "issues": ["The 'conversation list' is actually the full employee list (no last-message preview / recency ordering), so duplicate-named seeded employees look confusing."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix 'Task rejectd' typo in Tasks.jsx toast.",
+    "Add idempotency guard in /api/approvals/{id}/decision (reject decisions on non-pending approvals).",
+    "Return 404 for PUT/DELETE /api/employees/{id} when the employee does not exist.",
+    "Scope message from/to employee lookups to company_id in deliver_message / POST /api/messages.",
+    "Fix the stray floating bars in OfficeScene and the <option><span> React warning in Agents.jsx.",
+    "Consider splitting server.py (858 lines) into routers (auth, employees, tasks, messaging, ai) and removing dead code: no-op {\"$inc\": {\"stats.completed\": 0}} and the unused find_one in create_envelope."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 858 lines — exceeds the 700-line guideline; split into routers/services.",
+    "approvals decision endpoint mutates stats without checking current approval status (double-approve inflates agent completion stats).",
+    "CORS is configured with allow_credentials=True and default allow_origins='*' — invalid combination for credentialed requests; app currently relies on Bearer headers, but set explicit origins.",
+    "FastAPI @app.on_event('startup'/'shutdown') is deprecated — migrate to lifespan.",
+    "CreateAgentDialog offers models 'gemini-3.1-pro-preview', 'gpt-5.4-mini', 'claude-sonnet-4-6'; only the default gemini-3-flash-preview was verified end-to-end. Non-default choices are unverified and would surface as '[AI execution error]' text saved into the task output rather than an error state.",
+    "run_agent_task swallows LLM errors into the task output string; consider a dedicated 'error' task status so the UI can show a failure state instead of an approval containing an error message."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py", "/app/frontend/src/components/CreateAgentDialog.jsx"],
+  "success_rate": {"backend": "100% (28/28)", "frontend": "100% of tested flows (1 cosmetic typo, 1 React warning, 3D visual glitch)"},
+  "seed_data_creation": "Demo company (demo@alloy.os) now contains TEST_/QA_ artifacts: agents TEST_Aria + 'QA Scout', humans TEST_Human + 'QA Hooman', projects TEST_Launch + 'QA Project X', dept 'QA Ops'/'TEST_Legal', tasks TEST_*/QA_UI/QA_DLG. Also registered throwaway companies (test_qa_*, test_iso_*, qa_reg_*@qamail.example.com / qapass1234) for isolation tests.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "demo@alloy.os / demo1234 (valid, bcrypt hash verified $2b$)",
+  "context_for_next_testing_agent": "Run backend regression with: cd /app/backend && python -m pytest tests/backend_test.py (pytest.ini forces -n 2 --dist loadscope; use -n 0 for serial, NOT -p no:xdist). Emails must use a real-looking domain (EmailStr rejects .test/.local) and backend lowercases emails. Shared resources are created by session fixtures ai_agent/human_emp/project; class-scoped `state` dict carries task/approval ids inside TestTaskAIChain. AI runs finish in ~5-10s. Frontend testids are complete; template buttons now have data-testid=\"template-{key}\".",
+  "rca_of_the_issue": "No functional defect found in the core AI chain. The only tester-side fixes were test-data email domains (Pydantic EmailStr rejects reserved .test TLD), case-insensitive email assertion (backend intentionally lowercases), xdist-safe fixtures instead of module-level pytest attributes, and a missing data-testid on the agent template buttons."
+}

@@ -1,0 +1,114 @@
+{
+  "product_name": "AlloyOS",
+  "theme": "dark",
+  "typography": {
+    "headings": {
+      "family": "Cabinet Grotesk",
+      "fallback": "Chivo, sans-serif",
+      "weights": ["400", "800"],
+      "usage": "Use tight letter spacing (tracking-tight). Do not center-align. Break the typical SaaS look.",
+      "installation": "Add via Fontsource or Google Fonts for Chivo/Cabinet Grotesk."
+    },
+    "body": {
+      "family": "Geist",
+      "fallback": "Inter, sans-serif",
+      "weights": ["400", "500"],
+      "usage": "Clean, legible, loose line height (leading-relaxed)."
+    },
+    "mono": {
+      "family": "Geist Mono",
+      "fallback": "JetBrains Mono, monospace",
+      "usage": "For task IDs, agent statuses, code blocks, metrics, and terminal-like modals."
+    }
+  },
+  "colors": {
+    "background": "#09090B",
+    "surface": "#121214",
+    "surface_glass": "rgba(9, 9, 11, 0.65)",
+    "border": "rgba(255, 255, 255, 0.08)",
+    "text_primary": "#FAFAFA",
+    "text_secondary": "#A1A1AA",
+    "accent_ai": "#00E599",
+    "accent_human": "#FF6B35",
+    "status": {
+      "backlog": "#52525B",
+      "assigned": "#3B82F6",
+      "working": "#F59E0B",
+      "review": "#8B5CF6",
+      "completed": "#10B981"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "Use backdrop-blur-xl with bg-black/60 and 1px inner border-white/10 for any panel overlapping the 3D canvas (like sidebars and chat overlays). DO NOT use purely transparent backgrounds.",
+    "glow_effects": "Use subtle drop-shadows with the accent_ai color when an AI is actively working on a task.",
+    "textures": "Apply a subtle noise grain overlay over the entire application to reduce the synthetic digital feel."
+  },
+  "grids_layouts": {
+    "dashboard": "High Density Grid (grid-cols-4, gap-4). Every pixel utilized. Sharp corners, dense.",
+    "agent_profile": "Bento Grid (grid-cols-12, gap-8). Hero span-8 (3D Avatar viewer), secondary stats span-4.",
+    "office_hero": "Absolute positioning. 3D canvas takes 100% of viewport (w-full h-screen). UI components float over the canvas using z-10, absolute/fixed layout with glassmorphism."
+  },
+  "components": {
+    "buttons": "Sharp rectangular, flat background, 1px border. On hover: bg changes, text color ensures contrast. No heavy shadows.",
+    "cards": "Cardless or 1px subtle border. Rely on border color for definition, dense spacing.",
+    "modals": "Human-in-the-loop approval modals should look like command terminals. Dark background, monospace headers, clear Approve/Reject buttons.",
+    "kanban": "Linear-style minimalist lanes. No heavy backgrounds. Just a subtle line separator and dense, compact cards."
+  },
+  "motion": {
+    "general": "Fast, precise, no bouncing. transition-transform 0.2s ease, opacity 0.2s ease.",
+    "3d_envelope": "Signature flying envelope: Use Bezier curves in 3D space to fly from sender desk to receiver desk. Emits a soft glow in sender's accent color (AI=Mint, Human=Orange)."
+  },
+  "3d_libraries": {
+    "core": "@react-three/fiber, @react-three/drei, three",
+    "motion": "framer-motion, framer-motion-3d",
+    "guidelines": "Lighting is CRITICAL. Use <Environment preset='city' /> or soft rectAreaLights. Do not rely solely on ambient light. Avatars can be simplified low-poly figures to match a 'Simulacra' stylized vibe rather than hyper-realistic."
+  },
+  "image_urls": {
+    "human_avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1714462396046-29272a3cb549?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwyfHxjbGVhbiUyMHByb2Zlc3Npb25hbCUyMHN0dWRpbyUyMHBvcnRyYWl0fGVufDB8fHx8MTc4NzgzMzcyNHww&ixlib=rb-4.1.0&q=85",
+        "category": "human_employee_1"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1609436132311-e4b0c9370469?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwzfHxjbGVhbiUyMHByb2Zlc3Npb25hbCUyMHN0dWRpbyUyMHBvcnRyYWl0fGVufDB8fHx8MTc4NzgzMzcyNHww&ixlib=rb-4.1.0&q=85",
+        "category": "human_employee_2"
+      }
+    ],
+    "ai_avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1684369176170-463e84248b70?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwzfHxjdXRlJTIwcm9ib3QlMjAzZCUyMGNoYXJhY3RlciUyMGF2YXRhcnxlbnwwfHx8fDE3ODc4MzM3Mjh8MA&ixlib=rb-4.1.0&q=85",
+        "category": "ai_agent_1"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1658243766433-0144532e850c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHw0fHxjdXRlJTIwcm9ib3QlMjAzZCUyMGNoYXJhY3RlciUyMGF2YXRhcnxlbnwwfHx8fDE3ODc4MzM3Mjh8MA&ixlib=rb-4.1.0&q=85",
+        "category": "ai_agent_2"
+      }
+    ],
+    "environment_references": [
+      {
+        "url": "https://images.unsplash.com/photo-1661867011861-671e1cd85cc2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwxfHwzZCUyMG1pbmltYWxpc3QlMjBpc29tZXRyaWMlMjByb29tfGVufDB8fHx8MTc4NzgzMzczM3ww&ixlib=rb-4.1.0&q=85",
+        "category": "3d_office_inspiration"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Build the UI in React using Javascript (NOT Typescript). Write code in .js and .jsx files.",
+    "The 3D Virtual Office is the Hero screen. Use React Three Fiber to build an isometric grid room.",
+    "Do NOT make the UI look like a basic generic dashboard. Use glassmorphism overlays on top of the 3D canvas.",
+    "Implement the Kanban board using a very dense, text-first approach similar to Linear.",
+    "Create the 'Flying Envelope' using framer-motion-3d or R3F's useFrame to interpolate between 3D vectors when an event triggers.",
+    "Include a Human-in-the-loop modal that dims the 3D view and focuses sharply on the task details.",
+    "Never use empty placeholder texts for logos or missing data. Rely on the provided image urls.",
+    "Always add data-testid attributes to all interactive and key informational elements."
+  ],
+  "universal_guidelines": [
+    "No generic centered layouts, simplistic gradients, or uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) for overlapping panels.",
+    "Do NOT apply universal transition (transition: all). Use specific properties (transition-transform, transition-opacity).",
+    "Never use purely transparent backgrounds on UI elements floating over content. Always use glass or solid fill.",
+    "Use Phosphor icons or lucide-react for sharp, consistent tech icons.",
+    "Implement toasts using Sonner.",
+    "Add test IDs (data-testid) to all interactive elements. Example: data-testid='approve-task-button'"
+  ]
+}
