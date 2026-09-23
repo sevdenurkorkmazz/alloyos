@@ -7,9 +7,12 @@ import { useI18n } from "../context/I18nContext";
 import { Sparkles } from "lucide-react";
 
 const MODELS = [
+  { provider: "openai", model: "gpt-5.4", label: "ChatGPT (GPT-5.4) — En Güçlü" },
+  { provider: "openai", model: "gpt-5.4-mini", label: "ChatGPT (GPT-5.4 Mini) — Hızlı" },
+  { provider: "openai", model: "gpt-4o", label: "ChatGPT (GPT-4o) — Çok Yönlü" },
+  { provider: "openai", model: "o4-mini", label: "ChatGPT (o4-mini) — Akıl Yürütme" },
   { provider: "gemini", model: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
   { provider: "gemini", model: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
-  { provider: "openai", model: "gpt-5.4-mini", label: "GPT-5.4 Mini" },
   { provider: "anthropic", model: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
 ];
 
